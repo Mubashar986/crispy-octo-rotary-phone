@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Production build
+dist/
+
+# Test artifacts and screenshots
+artifacts/
+*.log
+
+# Raw mocap source files (compiled animation clips are in assets/football/clips)
+mocap_source/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.local

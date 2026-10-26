@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>PITCHLINE — Modular Tactical Football</title>
+  <style>
+    :root {
+      --bg:#050914; --surface:rgba(10,18,36,.9); --line:rgba(56,189,248,.3);
+      --accent:#00e676; --accent2:#00b0ff; --warn:#f59e0b; --danger:#f43f5e;
+    }
+    * { box-sizing:border-box; user-select:none; -webkit-user-select:none; }
+    html,body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:#f8fafc;
+      font-family:'Segoe UI',system-ui,sans-serif; }
+    input,select { user-select:text; -webkit-user-select:text; }
+    .hidden { display:none !important; }
+    #canvas-host { position:fixed; inset:0; z-index:1; }
+    [data-screen] { position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; }
+    .panel { background:var(--surface); border:1px solid var(--line); border-radius:16px;
+      padding:28px 34px; backdrop-filter:blur(14px); box-shadow:0 24px 60px rgba(0,0,0,.7); max-width:560px; width:min(92vw,560px); }
+    h1 { font-size:44px; margin:0 0 4px; letter-spacing:.06em; font-weight:800; }
+    h1 span { color:var(--accent); }
+    .sub { color:#9fb4d0; margin:0 0 22px; font-size:13px; letter-spacing:.14em; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0; }
+    button { cursor:pointer; border-radius:10px; border:1px solid var(--line); padding:10px 16px;
+      background:linear-gradient(90deg,#0b2036,#0d2b45); color:#e8f4ff; font-weight:600; letter-spacing:.05em; }
+    button:hover { filter:brightness(1.25); }
+    button.primary { background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#021428; border-color:#a7f3d0; }
+    button.sel { outline:2px solid var(--accent); }
+    label { font-size:12px; color:#9fb4d0; letter-spacing:.1em; }
+    select,input[type=text] { background:#0b1526; color:#e8f4ff; border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+    #boot-bar-wrap { width:320px; height:8px; background:#0b1526; border-radius:6px; overflow:hidden; margin-top:18px; }
+    #boot-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .2s; }
+    /* match HUD */
+    #hud { position:fixed; inset:0; z-index:20; pointer-events:none; }
+    #scorebug { position:absolute; top:14px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:0;
+      background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; backdrop-filter:blur(10px); }
+    #scorebug .team { padding:8px 16px; font-weight:800; letter-spacing:.08em; }
+    #scorebug .home { background:#0e7490; } #scorebug .away { background:#b91c1c; }
+    #scorebug .score { padding:8px 12px; font-weight:800; background:#071120; }
+    #scorebug .clockbox { padding:6px 14px; text-align:center; background:#071120; }
+    #hud-clock { font-size:20px; font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; }
+    #hud-phase { font-size:10px; letter-spacing:.2em; color:#9fb4d0; }
+    #hud-chips { position:absolute; top:16px; left:16px; display:flex; flex-direction:column; gap:6px; }
+    .stamina-chip { display:flex; align-items:center; gap:7px; font-size:10px; }
+    .stamina-track { width:72px; height:5px; background:rgba(255,255,255,.14); border-radius:4px; overflow:hidden; }
+    .stamina-track i { display:block; height:100%; width:100%; background:linear-gradient(90deg,#00e676,#00b0ff); }
+    .stamina-chip b { min-width:20px; text-align:right; font-variant-numeric:tabular-nums; }
+    .chip { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:5px 10px; font-size:11px; letter-spacing:.08em; }
+    #radar { position:absolute; top:14px; right:14px; width:150px; height:110px; border:1px solid var(--line); border-radius:8px; background:rgba(6,20,12,.8); }
+    #hud-buttons { position:absolute; top:140px; right:14px; display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
+    .compass-chip { display:flex; align-items:center; gap:6px; }
+    #hud-compass-arrow { display:inline-block; color:var(--accent); font-style:normal; font-size:16px; transition:transform .1s linear; }
+    .btn-key { display:block; font-size:9px; opacity:.8; letter-spacing:.04em; }
+    .btn-label { display:block; font-size:10px; line-height:1.1; }
+    #controls-panel { position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+      background:rgba(2,8,18,.72); pointer-events:auto; }
+    .controls-card { width:min(560px,92vw); background:var(--surface); border:1px solid var(--line); border-radius:16px;
+      padding:22px 26px; backdrop-filter:blur(14px); display:flex; flex-direction:column; gap:10px; }
+    .controls-head { display:flex; justify-content:space-between; align-items:center; letter-spacing:.12em; font-size:13px; color:#9fb4d0; }
+    .controls-head b { color:#f8fafc; font-size:18px; }
+    .controls-row { display:grid; grid-template-columns:120px 1fr; gap:14px; align-items:center; font-size:13px; color:#cfe3f8; }
+    kbd { background:#0b1526; border:1px solid var(--line); border-radius:6px; padding:5px 8px; color:#fff;
+      font-family:'JetBrains Mono',monospace; font-size:11px; text-align:center; }
+    #banner { position:absolute; top:32%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+    .banner-title { font-size:clamp(28px,3.4vw,42px); font-weight:900; letter-spacing:.08em; color:#7dd3fc; text-shadow:0 4px 24px rgba(0,176,255,.6); }
+    .banner-sub { font-size:13px; color:#e2f3ff; background:rgba(7,17,32,.8); display:inline-block; padding:5px 12px; border-radius:8px; margin-top:4px; }
+    .banner-sub:empty { display:none; }
+    #afk { position:absolute; top:70px; left:50%; transform:translateX(-50%); background:rgba(60,40,4,.9); border:1px solid var(--warn);
+      border-radius:10px; padding:8px 14px; display:flex; gap:12px; align-items:center; pointer-events:auto; }
+    #afk button { background:var(--accent); color:#021428; border:none; padding:6px 12px; }
+    #toasts { position:absolute; bottom:90px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:6px; align-items:center; }
+    .toast { background:rgba(7,17,32,.9); border:1px solid var(--line); border-radius:8px; padding:6px 14px; font-size:12px; }
+    #touch-controls { position:absolute; inset:auto 0 0 0; height:220px; pointer-events:none; }
+    #joystick-zone { position:absolute; left:26px; bottom:26px; width:150px; height:150px; border-radius:50%;
+      background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.18); pointer-events:auto; touch-action:none; }
+    #joystick-knob { position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px; border-radius:50%;
+      background:rgba(57,211,255,.85); box-shadow:0 0 18px rgba(57,211,255,.6); }
+    #action-cluster { position:absolute; right:22px; bottom:26px; display:grid; grid-template-columns:64px 64px; gap:10px; pointer-events:auto; }
+    #action-cluster button { width:64px; height:64px; border-radius:50%; font-size:11px; line-height:1.1; padding:4px; touch-action:none; }
+    #btn-act-A { background:#1d4ed8; } #btn-act-B { background:#b91c1c; } #btn-act-C { background:#7c3aed; } #btn-act-D { background:#a16207; }
+    #btn-sprint { position:absolute; right:180px; bottom:45px; width:52px; height:52px; border-radius:50%; background:#065f46; pointer-events:auto; touch-action:none; }
+    #controls-hint { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font-size:11px; color:#8ea6c4;
+      background:rgba(7,17,32,.7); padding:5px 12px; border-radius:8px; letter-spacing:.06em; }
+    #res-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px 22px; margin:16px 0; font-size:14px; color:#cfe3f8; }
+    #res-stats b { color:#fff; }
+    #res-stats .wide { grid-column:1 / -1; }
+    #ref-strip { position:absolute; top:78px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px;
+      background:rgba(7,17,32,.92); border:1px solid rgba(250,204,21,.45); border-radius:8px; padding:5px 12px; font-size:11px;
+      letter-spacing:.08em; color:#fde68a; }
+    #ref-strip b { color:#facc15; }
+    #card-cutscene { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:35; }
+    .card-shape { width:120px; min-height:166px; border-radius:12px; padding:12px; display:flex; flex-direction:column;
+      justify-content:flex-end; gap:4px; font-weight:800; letter-spacing:.06em; animation:cardIn .28s ease-out; }
+    .card-shape.yellow { background:linear-gradient(160deg,#fde047,#f59e0b); color:#1f2937; box-shadow:0 20px 70px rgba(245,158,11,.55); }
+    .card-shape.red { background:linear-gradient(160deg,#f87171,#b91c1c); color:#fff; box-shadow:0 20px 70px rgba(248,113,113,.55); }
+    .card-shape #card-player { font-size:14px; }
+    .card-shape #card-reason { font-size:9px; opacity:.85; letter-spacing:.04em; }
+    @keyframes cardIn { from { transform:translateY(-38px) scale(.7) rotate(-8deg); opacity:0; } to { transform:none; opacity:1; } }
+    #subs-panel, #halftime-panel { position:absolute; inset:0; z-index:45; display:flex; align-items:center; justify-content:center;
+      background:rgba(2,8,18,.78); pointer-events:auto; }
+    .subs-card, .ht-card { width:min(700px,94vw); max-height:84vh; overflow:auto; background:var(--surface);
+      border:1px solid var(--line); border-radius:16px; padding:20px 24px; backdrop-filter:blur(14px); }
+    .subs-head, .ht-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .subs-head b, .ht-head b { font-size:20px; letter-spacing:.08em; }
+    .subs-meta, .ht-sub { color:#9fb4d0; font-size:11px; letter-spacing:.1em; }
+    .sub-row { display:grid; grid-template-columns:minmax(110px,1.4fr) 68px 64px minmax(130px,1.25fr) 64px;
+      gap:10px; align-items:center; padding:7px 0; border-top:1px solid rgba(56,189,248,.14); font-size:12px; }
+    .sub-row:first-of-type { border-top:none; }
+    .sub-row .nm { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sub-row .rl { color:#9fb4d0; letter-spacing:.08em; font-size:10px; }
+    .sub-row select { width:100%; font-size:11px; padding:5px 6px; }
+    .sub-row button { padding:6px 8px; font-size:10px; }
+    .sub-row .off { color:#fda4af; }
+    .stam { display:flex; align-items:center; gap:5px; }
+    .stam i { display:block; height:5px; border-radius:3px; background:linear-gradient(90deg,#00e676,#00b0ff); }
+    .subs-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px;
+      color:#9fb4d0; font-size:11px; letter-spacing:.06em; }
+    .ht-score { font-size:30px; font-weight:900; letter-spacing:.08em; margin:2px 0 12px; }
+    .ht-stats { display:grid; grid-template-columns:1fr; gap:4px; margin-bottom:14px; }
+    .ht-stat { display:grid; grid-template-columns:42px 1fr 42px; gap:10px; align-items:center; font-size:12px; }
+    .ht-stat .mid { display:flex; flex-direction:column; gap:2px; text-align:center; color:#9fb4d0; font-size:9px; letter-spacing:.08em; }
+    .ht-bar { height:5px; border-radius:3px; background:rgba(255,255,255,.12); overflow:hidden; display:flex; }
+    .ht-bar i { height:100%; background:#39d3ff; }
+    .ht-bar i.away { background:#ff5d47; margin-left:auto; }
+    #hud-buttons #btn-subs { border-color:rgba(0,230,118,.5); }
+    #hud-buttons #btn-tactics { border-color:rgba(96,165,250,.55); }
+    #hud-shape { color:#bfdbfe; }
+    .mini-pitch { position:relative; width:100%; height:126px; border-radius:8px; overflow:hidden;
+      border:1px solid rgba(125,211,252,.35);
+      background:
+        radial-gradient(circle at 50% 50%, transparent 0 13%, rgba(255,255,255,.20) 13.5% 14.2%, transparent 14.7%),
+        linear-gradient(90deg, transparent 49.6%, rgba(255,255,255,.20) 49.6% 50.4%, transparent 50.4%),
+        repeating-linear-gradient(90deg, #176b3a 0 10%, #1d7a42 10% 20%);
+    }
+    .mini-pitch::before, .mini-pitch::after { content:''; position:absolute; top:50%; transform:translateY(-50%);
+      width:10%; height:46%; border:1px solid rgba(255,255,255,.28); }
+    .mini-pitch::before { left:0; border-left:none; }
+    .mini-pitch::after { right:0; border-right:none; }
+    .mini-pitch.large { height:300px; }
+    .pitch-dot { position:absolute; transform:translate(-50%,-50%); min-width:24px; height:21px; padding:0 4px;
+      border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:800;
+      letter-spacing:.02em; color:#04101d; background:#7dd3fc; border:1px solid rgba(255,255,255,.6);
+      box-shadow:0 2px 8px rgba(0,0,0,.35); white-space:nowrap; }
+    #lobby-pitch .pitch-dot { min-width:20px; height:18px; font-size:7px; padding:0 3px; }
+    .pitch-dot.def { background:#38bdf8; }
+    .pitch-dot.mid { background:#34d399; }
+    .pitch-dot.fwd { background:#f472b6; }
+    .pitch-dot.gk { background:#fbbf24; }
+    .pitch-dot.in { background:rgba(7,17,32,.35); border:2px dashed #93c5fd; color:#dbeafe; }
+    .pitch-dot.human { outline:2px solid #fff; outline-offset:1px; }
+    .pitch-legend { display:flex; gap:12px; flex-wrap:wrap; font-size:9px; color:#9fb4d0; letter-spacing:.08em; margin-top:6px; }
+    .pitch-legend b { color:#e2f3ff; }
+    .gameplan-preview { margin:6px 0 10px; padding:8px; border:1px solid var(--line); border-radius:10px; background:rgba(5,15,28,.55); }
+    .gameplan-preview .cap { display:flex; justify-content:space-between; gap:10px; font-size:10px; color:#9fb4d0; letter-spacing:.08em; margin-bottom:6px; }
+    .gameplan-preview .cap b { color:#e2f3ff; }
+    #lobby-pitch { height:100px; }
+    .panel.lobby-panel { padding:18px 28px 14px; max-height:94vh; display:flex; flex-direction:column; overflow:hidden; }
+    .panel.lobby-panel .row { margin:9px 0; }
+    .lobby-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; padding-right:6px; }
+    .lobby-actions { flex:0 0 auto; margin:8px 0 0 !important; padding-top:10px; border-top:1px solid var(--line); }
+    #tactics-panel { position:absolute; inset:0; z-index:46; display:flex; align-items:center; justify-content:center;
+      background:rgba(2,8,18,.80); pointer-events:auto; }
+    .tactics-card { width:min(980px,96vw); max-height:92vh; overflow:auto; background:var(--surface);
+      border:1px solid var(--line); border-radius:16px; padding:20px 24px; backdrop-filter:blur(14px); }
+    .tactics-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:12px; }
+    .tactics-head b { font-size:20px; letter-spacing:.08em; }
+    .tactics-meta { color:#9fb4d0; font-size:11px; letter-spacing:.1em; }
+    .tactics-body { display:grid; grid-template-columns:1.05fr .95fr; gap:18px; align-items:start; }
+    .tactics-left, .tactics-right { min-width:0; display:flex; flex-direction:column; gap:8px; }
+    .tactics-left label, .tactics-right label { font-size:10px; color:#9fb4d0; letter-spacing:.12em; margin-top:2px; }
+    .chip-grid, .tactic-grid { display:flex; flex-wrap:wrap; gap:6px; }
+    .chip-btn { padding:7px 9px; border-radius:8px; font-size:10px; font-weight:700; letter-spacing:.05em;
+      border:1px solid var(--line); background:#0b2036; color:#dbeafe; }
+    .chip-btn.sel { outline:2px solid #38bdf8; color:#fff; background:#123a58; }
+    .tactic-grid { display:grid; grid-template-columns:1fr 1fr; }
+    .tactic-btn { text-align:left; padding:7px 9px; border-radius:8px; border:1px solid var(--line);
+      background:#0b2036; color:#dbeafe; font-size:10px; line-height:1.25; }
+    .tactic-btn small { display:block; color:#9fb4d0; font-size:9px; font-weight:400; margin-top:2px; }
+    .tactic-btn.sel { outline:2px solid var(--accent); background:#0d3328; }
+    .seg { display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+    .seg button { flex:1; border:none; border-radius:0; padding:6px 8px; font-size:9px; letter-spacing:.06em; background:#0b1526; }
+    .seg button.sel { background:#0e7490; color:#fff; }
+    #tactics-pitch { margin-top:2px; }
+    .role-list { max-height:280px; overflow:auto; border-top:1px solid rgba(56,189,248,.14); }
+    .role-row { display:grid; grid-template-columns:minmax(70px,1.1fr) 64px 88px; gap:7px; align-items:center;
+      padding:5px 0; border-bottom:1px solid rgba(56,189,248,.12); font-size:11px; }
+    .role-row .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; }
+    .role-row select { width:100%; font-size:10px; padding:4px 5px; }
+    .tactic-bars { display:grid; gap:4px; margin-top:2px; }
+    .tactic-bar { display:grid; grid-template-columns:66px 1fr; gap:7px; align-items:center; font-size:9px; color:#9fb4d0; }
+    .tactic-bar i { display:block; height:4px; border-radius:3px; background:linear-gradient(90deg,#00e676,#00b0ff); }
+    .tactics-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:16px;
+      padding-top:12px; border-top:1px solid rgba(56,189,248,.16); }
+    .tactics-state { color:#9fb4d0; font-size:10px; letter-spacing:.06em; flex:1; }
+    .tactics-state b { color:#fde68a; }
+    .subs-meta .pending, .tactics-state .pending { color:#fde68a; }
+    #hud.penalty-cinema #scorebug, #hud.penalty-cinema #hud-chips, #hud.penalty-cinema #radar,
+    #hud.penalty-cinema #hud-buttons, #hud.penalty-cinema #controls-hint, #hud.penalty-cinema #ref-strip,
+    #hud.penalty-cinema #banner, #hud.penalty-cinema #toasts, #hud.penalty-cinema #afk { display:none !important; }
+    #setpiece-panel { position:absolute; inset:0; z-index:47; display:flex; align-items:center; justify-content:center;
+      background:rgba(2,8,18,.78); pointer-events:auto; }
+    .setpiece-card { width:min(470px,94vw); background:var(--surface); border:1px solid var(--line);
+      border-radius:16px; padding:20px 22px; backdrop-filter:blur(14px); }
+    .setpiece-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .setpiece-head b { font-size:20px; letter-spacing:.08em; }
+    .setpiece-sub { color:#9fb4d0; font-size:10px; letter-spacing:.1em; text-align:right; }
+    .goal-board { position:relative; height:220px; border-radius:10px; overflow:hidden;
+      background:
+        repeating-linear-gradient(0deg, transparent 0 14px, rgba(255,255,255,.10) 14px 15px),
+        repeating-linear-gradient(90deg, transparent 0 14px, rgba(255,255,255,.10) 14px 15px),
+        linear-gradient(180deg, #123a58, #071525);
+      border:2px solid rgba(226,243,255,.75); box-shadow:inset 0 0 30px rgba(0,0,0,.55); }
+    .goal-board::before { content:''; position:absolute; inset:8px 14px auto; height:2px; background:rgba(255,255,255,.75); }
+    .goal-zones { position:absolute; inset:24px 16px 18px; display:grid; grid-template-columns:repeat(3,1fr);
+      grid-template-rows:repeat(2,1fr); gap:7px; }
+    .goal-zones button { border:1px dashed rgba(147,197,253,.38); background:rgba(125,211,252,.07); color:#bfdbfe;
+      border-radius:7px; font-size:9px; letter-spacing:.08em; }
+    .goal-zones button:hover { background:rgba(125,211,252,.18); }
+    .goal-zones button.sel { background:rgba(0,230,118,.26); border:2px solid var(--accent); color:#ecfdf5; }
+    .wall-mark { position:absolute; left:50%; bottom:7px; transform:translateX(-50%); color:#fde68a;
+      font-size:9px; letter-spacing:.16em; border-top:2px solid rgba(253,230,138,.6); padding-top:2px; }
+    .setpiece-note { color:#9fb4d0; font-size:10px; letter-spacing:.06em; margin:8px 0 0; text-align:center; }
+    .setpiece-controls { display:flex; flex-direction:column; gap:9px; margin-top:14px; }
+    .sp-slider { display:grid; grid-template-columns:60px 1fr; gap:10px; align-items:center; }
+    .sp-slider label { font-size:10px; color:#9fb4d0; letter-spacing:.1em; }
+    .sp-slider input { width:100%; accent-color:var(--accent); }
+    .setpiece-foot { display:flex; align-items:center; gap:8px; margin-top:16px; padding-top:12px;
+      border-top:1px solid rgba(56,189,248,.16); }
+    #setpiece-hint { flex:1; color:#9fb4d0; font-size:10px; letter-spacing:.06em; }
+    #setpiece-keeper { margin-top:12px; }
+    #setpiece-keeper label { font-size:10px; color:#9fb4d0; letter-spacing:.12em; }
+    .dive-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px; }
+    .dive-grid button { padding:16px 6px; font-size:11px; }
+    .dive-grid button.sel { outline:2px solid var(--accent); background:#0d3328; }
+    @media (max-width:760px) {
+      .tactics-body { grid-template-columns:1fr; }
+      .mini-pitch.large { height:220px; }
+      .tactics-card { padding:16px; max-height:94vh; }
+      .role-list { max-height:190px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-host"></div>
+
+  <div data-screen="boot">
+    <div class="panel" style="text-align:center">
+      <h1>PITCH<span>LINE</span></h1>
+      <p class="sub">MODULAR TACTICAL FOOTBALL • PORTED MATCH ENGINE</p>
+      <div id="boot-status" class="chip">BOOTING…</div>
+      <div id="boot-bar-wrap"><div id="boot-bar"></div></div>
+    </div>
+  </div>
+
+  <div data-screen="lobby" class="hidden">
+    <div class="panel lobby-panel">
+      <div class="lobby-scroll">
+        <h1>PITCH<span>LINE</span></h1>
+        <p class="sub">SQUAD LOBBY • PICK A MODE AND ROLE</p>
+        <label>DISPLAY NAME</label>
+        <div class="row"><input type="text" id="lobby-name" maxlength="14" /></div>
+        <label>MATCH MODE</label>
+        <div class="row" id="mode-cards"></div>
+        <label>GAME PLAN — FORMATION &amp; MENTALITY</label>
+        <div class="row"><select id="formation-select"></select><select id="tactic-select"></select></div>
+        <div class="gameplan-preview">
+          <div class="cap"><b id="lobby-plan-title">4-4-2 · BALANCED</b><span>SOLID = OUT · RING = IN POSSESSION</span></div>
+          <div id="lobby-pitch" class="mini-pitch"></div>
+        </div>
+        <label>YOUR ROLE / STARTING POSITION</label>
+        <div class="row"><select id="role-select"></select></div>
+        <label>CONTROL MODE</label>
+        <div class="row"><select id="control-mode-select">
+          <option value="player" selected>PLAYER — BE A PRO</option>
+          <option value="team">TEAM — AUTO-SWITCH</option>
+        </select></div>
+        <label>CONTROL SCHEME</label>
+        <div class="row"><select id="control-scheme-select"></select></div>
+        <label>OPPONENT STRENGTH</label>
+        <div class="row"><select id="ai-select">
+          <option value="0">AMATEUR</option><option value="1">SEMI-PRO</option>
+          <option value="2" selected>PROFESSIONAL</option><option value="3">WORLD CLASS</option>
+          <option value="4">LEGENDARY</option>
+        </select></div>
+        <p class="sub" style="margin:12px 0 0">Engine: ported FStudio.MatchEngine (ballistics, skill error model, behaviour arbitration, tactics) • Assets: extracted Unity meshes land in M2</p>
+      </div>
+      <div class="row lobby-actions">
+        <button class="primary" id="btn-start">KICK OFF</button>
+        <button id="btn-sound-lobby">SOUND: ON</button>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen="match" class="hidden">
+    <div id="hud">
+      <div id="scorebug">
+        <div class="team home">HOME</div><div class="score" id="hud-home-score">0</div>
+        <div class="clockbox"><div id="hud-clock">00:00</div><div id="hud-phase">LIVE</div></div>
+        <div class="score" id="hud-away-score">0</div><div class="team away">AWAY</div>
+      </div>
+      <div id="hud-chips">
+        <div class="chip" id="hud-shape">4-4-2 · BALANCED</div>
+        <div class="chip" id="hud-streak">BUILD-UP</div>
+        <div class="chip" id="hud-role">ROLE —</div>
+        <div class="chip" id="hud-carry" style="display:none">CARRY</div>
+        <div class="chip stamina-chip"><span>STAMINA</span><div class="stamina-track"><i id="hud-stamina-fill"></i></div><b id="hud-stamina">100</b></div>
+        <div class="chip" id="hud-cam">CAM BROADCAST</div>
+        <div class="chip" id="hud-perf">FPS —</div>
+        <div class="chip compass-chip"><i id="hud-compass-arrow">▲</i><span>GOAL</span></div>
+      </div>
+      <canvas id="radar" width="150" height="110"></canvas>
+      <div id="ref-strip" class="hidden"><b>REF</b><span id="ref-message"></span></div>
+      <div id="hud-buttons">
+        <button id="btn-cam">CAM</button>
+        <button id="btn-tactics">TACTICS</button>
+        <button id="btn-subs">SUBS <span id="subs-count">0/5</span></button>
+        <button id="btn-keys">KEYS</button>
+        <button id="btn-quality">HIGH</button>
+        <button id="btn-sound">SND</button>
+        <button id="btn-leave">LEAVE</button>
+      </div>
+      <div id="banner" class="hidden"><div class="banner-title"></div><div class="banner-sub"></div></div>
+      <div id="card-cutscene" class="hidden">
+        <div class="card-shape yellow" id="card-shape"><span id="card-player"></span><span id="card-reason"></span></div>
+      </div>
+      <div id="afk" class="hidden"><span id="afk-text">AFK: a bot is covering your slot</span><button id="btn-retake">RETAKE SLOT</button></div>
+      <div id="toasts"></div>
+      <div id="subs-panel" class="hidden">
+        <div class="subs-card">
+          <div class="subs-head"><b>SUBSTITUTIONS</b><span class="subs-meta" id="subs-meta">0/5 USED · 0/3 WINDOWS</span></div>
+          <div id="subs-list"></div>
+          <div class="subs-foot"><span id="subs-rule">5 SUBSTITUTIONS · 3 WINDOWS · HALF TIME FREE</span><button id="btn-subs-close">RESUME</button></div>
+        </div>
+      </div>
+      <div id="halftime-panel" class="hidden">
+        <div class="ht-card">
+          <div class="ht-head"><b>HALF TIME</b><span class="ht-sub">SECOND HALF SWITCHES ENDS</span></div>
+          <div class="ht-score" id="ht-score">HOME 0 — 0 AWAY</div>
+          <div class="ht-stats" id="ht-stats"></div>
+          <div class="row">
+            <button id="btn-ht-subs">MAKE SUBS</button>
+            <button class="primary" id="btn-ht-continue">START SECOND HALF</button>
+          </div>
+        </div>
+      </div>
+      <div id="tactics-panel" class="hidden">
+        <div class="tactics-card">
+          <div class="tactics-head"><b>GAME PLAN</b><span class="tactics-meta" id="tactics-meta">4-4-2 · BALANCED</span></div>
+          <div class="tactics-body">
+            <div class="tactics-left">
+              <label>FORMATION</label>
+              <div id="tactics-formations" class="chip-grid"></div>
+              <label>PHASE SHAPE</label>
+              <div class="seg" id="tactics-phase">
+                <button data-phase="out" class="sel">OUT OF POSSESSION</button>
+                <button data-phase="in">IN POSSESSION</button>
+              </div>
+              <div id="tactics-pitch" class="mini-pitch large"></div>
+              <div class="pitch-legend"><span><b>SOLID</b> OUT OF POSSESSION</span><span><b>RING</b> IN POSSESSION</span></div>
+              <div class="pitch-legend" id="tactics-phase-note">Duty-driven attacking shape</div>
+            </div>
+            <div class="tactics-right">
+              <label>ROLES &amp; DUTIES</label>
+              <div id="tactics-roles" class="role-list"></div>
+              <label>MENTALITY</label>
+              <div id="tactics-tactics" class="tactic-grid"></div>
+              <div id="tactics-tactic-summary" class="tactic-bars"></div>
+            </div>
+          </div>
+          <div class="tactics-foot">
+            <span class="tactics-state" id="tactics-state">SHAPE: NEXT STOPPAGE · MENTALITY: LIVE</span>
+            <button id="btn-tactics-close">CANCEL</button>
+            <button class="primary" id="btn-tactics-apply">APPLY GAME PLAN</button>
+          </div>
+        </div>
+      </div>
+      <div id="setpiece-panel" class="hidden">
+        <div class="setpiece-card">
+          <div class="setpiece-head"><b id="setpiece-title">FREE KICK</b><span class="setpiece-sub" id="setpiece-sub"></span></div>
+          <div id="setpiece-goal-wrap">
+            <div class="goal-board" id="goal-board">
+              <div class="goal-zones" id="goal-zones"></div>
+              <div class="wall-mark hidden" id="wall-mark">WALL · 9.15M</div>
+            </div>
+            <p class="setpiece-note" id="setpiece-note">PICK A TARGET ZONE</p>
+          </div>
+          <div id="setpiece-keeper" class="hidden">
+            <label>CHOOSE YOUR DIVE</label>
+            <div class="dive-grid" id="dive-grid">
+              <button data-dive="-1">LEFT</button><button data-dive="0">CENTRE</button><button data-dive="1">RIGHT</button>
+            </div>
+          </div>
+          <div id="setpiece-controls">
+            <div class="sp-slider"><label>POWER</label><input id="setpiece-power" type="range" min="25" max="100" value="68" /></div>
+            <div class="sp-slider" id="curve-wrap"><label>CURVE</label><input id="setpiece-curve" type="range" min="-100" max="100" value="0" /></div>
+          </div>
+          <div class="setpiece-foot">
+            <span id="setpiece-hint">PICK A ZONE, THEN STRIKE</span>
+            <button id="btn-setpiece-cancel">CANCEL</button>
+            <button class="primary" id="btn-setpiece-strike">STRIKE</button>
+          </div>
+        </div>
+      </div>
+      <div id="touch-controls">
+        <div id="joystick-zone"><div id="joystick-knob"></div></div>
+        <div id="action-cluster">
+          <button id="btn-act-A"><span class="btn-key" data-key="pass">SPACE</span><span class="btn-label">PASS</span></button>
+          <button id="btn-act-B"><span class="btn-key" data-key="shoot">X</span><span class="btn-label">SHOOT</span></button>
+          <button id="btn-act-C"><span class="btn-key" data-key="skill">C</span><span class="btn-label">SLIDE / FEINT</span></button>
+          <button id="btn-act-D"><span class="btn-key" data-key="through">Z</span><span class="btn-label">THROUGH / LOB</span></button>
+        </div>
+        <button id="btn-sprint">RUN</button>
+      </div>
+      <div id="controls-hint">ARROWS / WASD MOVE ON SCREEN • SHIFT SPRINT • SPACE PASS • X SHOOT • C FEINT/SLIDE • M CLOSE • N FACE-UP • Z THROUGH • F SWITCH • G CALL • T TACTICS • B SUBS • V CAM • H KEYS</div>
+      <div id="controls-panel" class="hidden">
+        <div class="controls-card">
+          <div class="controls-head"><b>CONTROLS</b><span id="controls-scheme-name">ARROW CLASSIC</span></div>
+          <div class="controls-row"><kbd id="ck-move">ARROWS / WASD</kbd><span>Move — arrows match the screen; ATTACK cam faces the opponent goal</span></div>
+          <div class="controls-row"><kbd id="ck-sprint">SHIFT</kbd><span>Hold to sprint (uses stamina)</span></div>
+          <div class="controls-row"><kbd id="ck-pass">SPACE</kbd><span>Pass with ball / tackle without</span></div>
+          <div class="controls-row"><kbd id="ck-shoot">X</kbd><span>Hold to charge shot, release to shoot</span></div>
+          <div class="controls-row"><kbd id="ck-skill">C</kbd><span>Feint, slide tackle or goalkeeper dive</span></div>
+          <div class="controls-row"><kbd id="ck-closeControl">M</kbd><span>Hold close control — tighter touches and automatic shielding under pressure</span></div>
+          <div class="controls-row"><kbd id="ck-faceUp">N</kbd><span>Hold face-up — keep the body toward goal while moving sideways or back</span></div>
+          <div class="controls-row"><kbd>C + M</kbd><span>Ball roll — knock the ball past a defender while close controlling</span></div>
+          <div class="controls-row"><kbd id="ck-through">Z</kbd><span>Tap through-ball, hold lob</span></div>
+          <div class="controls-row"><kbd id="ck-switch">F</kbd><span>Switch player — TEAM mode only</span></div>
+          <div class="controls-row"><kbd id="ck-call">G</kbd><span>Call for a pass when you are open</span></div>
+          <div class="controls-row"><kbd>PEN</kbd><span>Penalty: move to aim · hold X to power · release · C to dive</span></div>
+          <div class="controls-row"><kbd>T</kbd><span>Tactics and formation — shape applies at the next stoppage</span></div>
+          <div class="controls-row"><kbd>B</kbd><span>Substitutions — dead balls and half time only</span></div>
+          <div class="controls-row"><kbd id="ck-camera">V</kbd><span>Change camera</span></div>
+          <button id="btn-tutorial-close" class="primary">GOT IT</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen="results" class="hidden">
+    <div class="panel">
+      <h1 id="res-title">FULL TIME</h1>
+      <p class="sub" id="res-scoreline">HOME 0 — 0 AWAY</p>
+      <div id="res-stats"></div>
+      <div class="row">
+        <button class="primary" id="btn-again">PLAY AGAIN</button>
+        <button id="btn-lobby">BACK TO LOBBY</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

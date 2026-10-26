@@ -1,0 +1,14 @@
+{
+  "name": "Quaternius athletic footballer",
+  "model": "player.glb",
+  "animations": ["locomotion.glb"],
+  "heightMeters": 1.84,
+  "forwardRotation": 1.57079632679,
+  "bodyMesh": "SuperHero_Male",
+  "bodyMaterial": "MI_Superhero_Male",
+  "license": "CC0-1.0",
+  "sources": [
+    "https://quaternius.com/packs/universalbasecharacters.html",
+    "https://quaternius.com/packs/universalanimationlibrary.html"
+  ]
+}
